@@ -166,7 +166,6 @@ class SinaImg():
         }
         resp = self.socket_resp(url, True, fileds=fileds, headers=headers,
                                 cookies=self.cookies)
-
     def img_add_prepare(self, raw):
         filed_album_id = None
         filed_upload = None
@@ -209,15 +208,26 @@ class SinaImg():
             img_url = pattern.search(raw).group(1)
         return img_url
 
-    def upload(self):
-        #with open('sina_imgadd.html', 'rb') as fh:
-        #    raw_img_add = fh.read()
+    def get_remote_img(self, url, filename='temp.jpg'):
+        #return self.socket_resp(url)
+        import utils
+        utils.save_binary_file(filename, self.socket_resp(url))
+        return filename
+
+    def upload(self, upfile=None):
+        if not upfile and upfile:
+            L.debug('have no img to upload')
+            return None
+
+        if upfile.startswith('http://'):
+            upfile = self.get_remote_img(upfile)
+
         raw_img_add = self.socket_resp(self.url_img_add, True)
         fileds_pre = self.img_add_prepare(raw_img_add)
 
-        upfile = '1.jpg'
         fileds = {
             'album_id': fileds_pre.get('album_id'),
+            #'photo': raw_img,
             'photo': open(upfile, 'rb'),
             'description': '',
             'upload': fileds_pre.get('upload'),
@@ -237,146 +247,20 @@ class SinaImg():
             MultipartPostHandler.MultipartPostHandler
         )
         resp = opener.open(request, fileds)
-        print self.get_img_url(self.decode_resp(resp))
+        result = self.get_img_url(self.decode_resp(resp))
+        L.debug('uploaded image url: %s' % (result,))
+        return result
 
+    def upload_batch(self, upfiles=None):
+        if not upfiles:
+            return None
+        result = []
+        for upfile in upfiles:
+            result.append(self.upload(upfile))
+        return result
 
-si = SinaImg()
-si.login()
-si.upload()
-
-'''
-def decode_resp(resp):
-    data = resp.read()
-    data_encoding = resp.headers.get('Content-Encoding', None)
-    if data_encoding == 'gzip':
-        import StringIO, gzip
-        return gzip.GzipFile(fileobj=StringIO.StringIO(data), mode='rb').read()
-    elif data_encoding == 'deflate':
-        import zlib
-        return zlib.decompressobj(-zlib.MAX_WBITS).decompress(data)
-    return data
-
-def socket_resp(url=None, usecookies=False, **kwargs):
-    headers = {
-        'Accept': '*/*',
-        'Accept-Encoding': 'gzip, deflate',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 5.1; rv:19.0) Gecko/20100101 \
-        Firefox/19.0'
-    }
-    fileds = None
-    if 'fileds' in kwargs:
-        body = kwargs.pop('fileds')
-        fileds = '&'.join([k+'='+v for k,v in body.items()])
-
-    request = urllib2.Request(url=url, data=fileds, headers=headers)
-
-    if 'headers' in kwargs:
-        extra_headers = kwargs.pop('headers')
-        if hasattr(extra_headers,'items'):
-            extra_headers = extra_headers.items()
-        else:
-            try:
-                if len(extra_headers) and not isinstance(
-                    extra_headers[0], tuple
-                ):
-                    raise TypeError
-            except TypeError:
-                L.error('#'*15 + ' extra_headers type error')
-        for k,v in extra_headers:
-            request.add_header(k,v)
-
-    cookies = None
-    if 'cookies' in kwargs:
-        cookies = kwargs.pop('cookies')
-
-    resp = None
-    if usecookies:
-        try:
-            if not cookies:
-                cookies_request = urllib2.Request(url=url, headers=headers)
-                response = urllib2.urlopen(cookies_request)
-                cookies = CookieJar()
-                cookies.extract_cookies(response, cookies_request)
-            cookie_handler = urllib2.HTTPCookieProcessor(cookies)
-            redirect_handler = urllib2.HTTPRedirectHandler()
-            opener = urllib2.build_opener(redirect_handler, cookie_handler)
-            resp = opener.open(request)
-        except urllib2.HTTPError as e:
-            L.error('%s %s' % (e.code, url))
-        finally:
-            return cookies, decode_resp(resp)
-    else:
-        opener = urllib2.build_opener()
-        try:
-            resp = opener.open(request)
-        except urllib2.HTTPError as e:
-            L.error('%s %s' % (e.code, url))
-        finally:
-            return decode_resp(resp)
-
-def login_prepare(source):
-    form_action = None
-    filed_password = None
-    filed_vk = None
-
-    pattern = re.compile('form action="([^"]*)"')
-    if pattern.search(source):
-        form_action = pattern.search(source).group(1)
-
-    pattern = re.compile('password" name="([^"]*)"')
-    if pattern.search(source):
-        filed_password = pattern.search(source).group(1)
-
-    pattern = re.compile('name="vk" value="([^"]*)"')
-    if pattern.search(source):
-        filed_vk = pattern.search(source).group(1)
-
-    pattern = re.compile('name="backURL" value="([^"]*)"')
-    if pattern.search(source):
-        filed_backURL = pattern.search(source).group(1)
-
-    pattern = re.compile('name="backTitle" value="([^"]*)"')
-    if pattern.search(source):
-        filed_backTitle = pattern.search(source).group(1)
-
-    pattern = re.compile('name="submit" value="([^"]*)"')
-    if pattern.search(source):
-        filed_submit = pattern.search(source).group(1)
-
-    fileds = {
-        'form_action': form_action,
-        'filed_password': filed_password,
-        'filed_vk': filed_vk,
-        'filed_backURL': filed_backURL,
-        'filed_backTitle': filed_backTitle,
-        'filed_submit': filed_submit
-    }
-    return fileds
-
-def login():
-    cookies, s = socket_resp(URL_LOGIN_PREPARE, True)
-    fileds_pre = login_prepare(s)
-
-    url = URL_LOGIN_PREPARE + fileds_pre.get('form_action')
-    #url = HTMLParser.HTMLParser().unescape(
-    #    URL_LOGIN_PREPARE + fileds_pre.get('form_action')
-    #)
-    headers = {'Referer': URL_LOGIN_PREPARE}
-    fileds = {
-        'mobile':'oyiyi.com@gmail.com',
-        '%s'%fileds_pre.get('filed_password'): 'lovelele',
-        'remember': 'on',
-        'backURL': fileds_pre.get('filed_backURL'),
-        'backTitle': fileds_pre.get('filed_backTitle'),
-        'tryCount': '',
-        'vk': fileds_pre.get('filed_vk'),
-        'submit': fileds_pre.get('filed_submit')
-    }
-    cookies, resp = socket_resp(
-        url, True, fileds=fileds, headers=headers, cookies=cookies
-    )
-    return cookies
-
-login()
-'''
+if __name__ == '__main__':
+    url = 'http://img31.mtime.cn/mt/801/10801/10801_300x450.jpg'
+    si = SinaImg()
+    si.login()
+    si.upload(url)

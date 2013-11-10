@@ -129,54 +129,5 @@ class MultipartPostHandler(urllib2.BaseHandler):
 
     https_request = http_request
 
-def main():
-    import tempfile, sys
-
-    validatorURL = "http://validator.w3.org/check"
-    opener = urllib2.build_opener(MultipartPostHandler)
-
-    def validateFile(url):
-        temp = tempfile.mkstemp(suffix=".html")
-        os.write(temp[0], opener.open(url).read())
-        params = { "ss" : "0",            # show source
-                   "doctype" : "Inline",
-                   "uploaded_file" : open(temp[1], "rb") }
-        print opener.open(validatorURL, params).read()
-        os.remove(temp[1])
-
-    if len(sys.argv[1:]) > 0:
-        for arg in sys.argv[1:]:
-            validateFile(arg)
-    else:
-        validateFile("http://www.baidu.com")
-
-def test():
-    import cookielib
-
-    url = 'http://dev.zenggao121.com/misc.php?mod=swfupload&action=swfupload&operation=album'
-    headers={
-        'Accept': 'text/*',
-        'User-Agent': 'Shockwave Flash',
-        'Connection': 'Keep-Alive',
-        'Pragma': 'no-cache',
-    }
-    params = { 'Filename': 'Filename',
-                'uid': '2',
-                'hash': 'hash',
-                'filetype': 'filetype',
-                'Upload': 'Submit Query',
-                'Filedata': open('temp/logo.png', 'rb') }
-
-    request = urllib2.Request(url, '', headers)
-
-    cookies = cookielib.CookieJar()
-    cookie_handler = urllib2.HTTPCookieProcessor(cookies)
-    redirect_handler= urllib2.HTTPRedirectHandler()
-    opener = urllib2.build_opener(cookie_handler, redirect_handler,
-                                MultipartPostHandler)
-    #print opener.open(post_url, params).read()
-    print opener.open(request, params).read()
-
 if __name__=="__main__":
-    #main()
-    test()
+    pass

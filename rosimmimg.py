@@ -9,7 +9,6 @@ import urlparse
 import urllib2
 import logging
 import chardet
-import utils
 
 
 def get_logger(logger_name):
@@ -56,6 +55,7 @@ def get_socket_resp(url=None, extr_headers=None):
         L.error('%s %s' % (e.code, url))
     finally:
         return resp
+
 
 
 def get_resp_body(resp):
